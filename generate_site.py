@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import hashlib
 import html
@@ -1894,6 +1894,22 @@ def write_html() -> None:
           <p id="flashStats">0 reviewed</p>
         </div>
       </div>
+      <div class="cloze-panel glass-panel">
+        <div>
+          <p class="eyebrow">Cloze recall</p>
+          <h3 id="clozePrompt">mi ___ al dom.</h3>
+          <p id="clozeHint">Fill the missing Nari word from context.</p>
+        </div>
+        <label class="practice-answer">
+          <span>Missing word</span>
+          <input id="clozeAnswer" type="text" autocomplete="off" placeholder="Type one word">
+        </label>
+        <div class="practice-actions">
+          <button id="checkCloze" class="button primary" type="button">Check</button>
+          <button id="nextCloze" class="button secondary" type="button">Next cloze</button>
+          <p id="clozeFeedback">Active recall beats rereading.</p>
+        </div>
+      </div>
     </section>
 
     <section id="stories" class="section shell tab-panel">
@@ -2341,16 +2357,30 @@ h3 {
 
 .tab-panel {
   display: none;
+  opacity: 0;
+  transform: translateY(10px);
 }
 
 .tab-panel.is-active {
   display: block;
+  animation: tabIn 260ms ease both;
 }
 
 .nav-links a.is-active {
   color: var(--ink);
   border-color: transparent;
   background: var(--accent);
+}
+
+@keyframes tabIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .section-heading {
@@ -2368,6 +2398,51 @@ h3 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+}
+
+.story-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+}
+
+.story-tab {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.08);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.story-tab:hover {
+  transform: translateY(-1px);
+}
+
+.story-tab.is-active {
+  color: var(--ink);
+  border-color: transparent;
+  background: var(--accent-2);
+}
+
+.story-level-panel {
+  display: none;
+}
+
+.story-level-panel.is-active {
+  display: grid;
+  animation: tabIn 240ms ease both;
+}
+
+.story-note {
+  margin-top: 16px;
+  padding: 14px 16px;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .rule-group-title {
@@ -2463,6 +2538,26 @@ h3 {
   gap: 18px;
   margin-top: 16px;
   padding: 24px;
+}
+
+.cloze-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.5fr);
+  gap: 18px;
+  align-items: end;
+  margin-top: 16px;
+  padding: 24px;
+}
+
+.cloze-panel h3 {
+  margin-bottom: 8px;
+  color: var(--accent-2);
+  font-size: clamp(1.5rem, 3vw, 2.5rem);
+}
+
+.cloze-panel p {
+  margin: 0;
+  color: var(--muted);
 }
 
 .flashcard-panel h3 {
@@ -2727,6 +2822,10 @@ td:first-child {
     flex-direction: column;
   }
 
+  .cloze-panel {
+    grid-template-columns: 1fr;
+  }
+
   .hero {
     min-height: auto;
     padding-top: 60px;
@@ -2810,6 +2909,12 @@ const revealFlash = document.querySelector("#revealFlash");
 const gotFlash = document.querySelector("#gotFlash");
 const missFlash = document.querySelector("#missFlash");
 const flashStats = document.querySelector("#flashStats");
+const clozePrompt = document.querySelector("#clozePrompt");
+const clozeHint = document.querySelector("#clozeHint");
+const clozeAnswer = document.querySelector("#clozeAnswer");
+const checkCloze = document.querySelector("#checkCloze");
+const nextCloze = document.querySelector("#nextCloze");
+const clozeFeedback = document.querySelector("#clozeFeedback");
 
 const englishToNari = new Map(rows.map((row) => [row.english.toLowerCase(), row.nari]));
 const nariToEnglish = new Map(rows.map((row) => [row.nari.toLowerCase(), row.english.toLowerCase()]));
@@ -2847,6 +2952,7 @@ let currentDrill = null;
 let currentFlash = null;
 let reviewedCards = 0;
 let missedCards = 0;
+let currentCloze = null;
 
 const grammarDrills = [
   { mode: "Possessive pronouns", prompt: "Translate: my book", answer: "mai buka" },
@@ -2862,6 +2968,17 @@ const grammarDrills = [
   { mode: "Continuous action", prompt: "Translate: we are working", answer: "mu du vora" },
   { mode: "Colors", prompt: "Translate to Nari: blue", answer: "sanu" },
   { mode: "Colors", prompt: "Translate to Nari: turquoise", answer: "turka" },
+];
+
+const clozeDrills = [
+  { sentence: "mi ___ al dom.", answer: "be", hint: "I am at home." },
+  { sentence: "mu ___ vora.", answer: "du", hint: "We are working." },
+  { sentence: "___ buka", answer: "mai", hint: "my book" },
+  { sentence: "ta ___ suma.", answer: "musu", hint: "You must study." },
+  { sentence: "lis ___ taver.", answer: "be", hint: "She is a teacher." },
+  { sentence: "mi ___ ni.", answer: "na", hint: "I do not know." },
+  { sentence: "ruba ___", answer: "kar", hint: "red car" },
+  { sentence: "mi su pain al ___.", answer: "rista", hint: "I have pain in my wrist." },
 ];
 
 wordCount.textContent = data.entryCount.toLocaleString();
@@ -2964,6 +3081,13 @@ drillAnswer.addEventListener("keydown", (event) => {
 revealFlash.addEventListener("click", revealFlashcard);
 gotFlash.addEventListener("click", () => scoreFlashcard(false));
 missFlash.addEventListener("click", () => scoreFlashcard(true));
+nextCloze.addEventListener("click", loadCloze);
+checkCloze.addEventListener("click", checkClozeAnswer);
+clozeAnswer.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    checkClozeAnswer();
+  }
+});
 
 directionButtons.forEach((button) => {
   button.addEventListener("click", () => {
@@ -3184,6 +3308,28 @@ function scoreFlashcard(missed) {
   loadFlashcard();
 }
 
+function loadCloze() {
+  currentCloze = clozeDrills[Math.floor(Math.random() * clozeDrills.length)];
+  clozePrompt.textContent = currentCloze.sentence;
+  clozeHint.textContent = currentCloze.hint;
+  clozeAnswer.value = "";
+  clozeFeedback.textContent = "Recall the missing word before checking.";
+  clozeFeedback.className = "";
+}
+
+function checkClozeAnswer() {
+  if (!currentCloze) loadCloze();
+  const given = normalizeAnswer(clozeAnswer.value);
+  const expected = normalizeAnswer(currentCloze.answer);
+  if (given === expected) {
+    clozeFeedback.textContent = `Correct: ${currentCloze.answer}`;
+    clozeFeedback.className = "is-correct";
+  } else {
+    clozeFeedback.textContent = `Not quite. Answer: ${currentCloze.answer}`;
+    clozeFeedback.className = "is-warn";
+  }
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -3197,6 +3343,7 @@ renderVocabulary();
 translateText();
 loadDrill();
 loadFlashcard();
+loadCloze();
 showTab(getRequestedTab());
 """
     (ROOT / "script.js").write_text(js, encoding="utf-8")
