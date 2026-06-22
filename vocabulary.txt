@@ -1,6 +1,6 @@
 NARI EXPANDED VOCABULARY
 
-Total entries: 1543
+Total entries: 1542
 
 Format: Nari = English
 
@@ -1661,3 +1661,4 @@ ruzunze = software
 gamho = tool
 nodrufo = training
 drumjil = university
+wla = wallahi
