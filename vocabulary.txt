@@ -1661,4 +1661,3 @@ ruzunze = software
 gamho = tool
 nodrufo = training
 drumjil = university
-wla = wallahi
